@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>multidão</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        background: #f7f4ef;
+        color: #111;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      .stage {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 18% 16%, rgba(255, 210, 122, 0.45), transparent 28%),
+          linear-gradient(180deg, #fdfbf7 0%, #f1ebe2 58%, #ded6cb 100%);
+      }
+
+      .header {
+        position: absolute;
+        top: 64px;
+        left: 50%;
+        z-index: 2;
+        display: grid;
+        gap: 18px;
+        justify-items: center;
+        width: min(88vw, 720px);
+        transform: translateX(-50%);
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        position: relative;
+        max-width: 12ch;
+        color: rgba(17, 17, 17, 0.48);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.1;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::after {
+        content: "";
+        position: absolute;
+        top: calc(100% + 10px);
+        left: 50%;
+        width: 1px;
+        height: 70px;
+        background: linear-gradient(180deg, rgba(17, 17, 17, 0.1), rgba(17, 17, 17, 0.75));
+      }
+
+      h1 {
+        margin: 92px 0 0;
+        max-width: 12ch;
+        font-size: clamp(48px, 9vw, 108px);
+        font-weight: 800;
+        line-height: 0.9;
+        letter-spacing: 0;
+      }
+
+      .ground {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 30vh;
+        background:
+          linear-gradient(180deg, transparent 0%, rgba(51, 43, 35, 0.08) 42%, rgba(51, 43, 35, 0.16) 100%),
+          repeating-linear-gradient(90deg, rgba(17, 17, 17, 0.06) 0 1px, transparent 1px 54px);
+      }
+
+      canvas {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        z-index: 1;
+        width: 100%;
+        height: 90vh;
+      }
+
+      @media (max-width: 640px) {
+        .header {
+          top: 42px;
+        }
+
+        h1 {
+          margin-top: 84px;
+          font-size: clamp(44px, 17vw, 72px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <div class="header">
+        <span class="eyebrow">multidão, slc dificil pra crlho vsfd aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</span>
+        <h1>pessoas em movimento</h1>
+      </div>
+      <div class="ground"></div>
+      <canvas id="crowd-canvas" aria-label="Multidao animada caminhando"></canvas>
+    </main>
+
+    <script>
+      const canvas = document.querySelector("#crowd-canvas");
+      const ctx = canvas.getContext("2d");
+      const rows = 15;
+      const cols = 7;
+      const crowd = [];
+      const allPeeps = [];
+      const availablePeeps = [];
+      const stage = { width: 0, height: 0 };
+      let lastTime = performance.now();
+      let animationId = 0;
+
+      const randomRange = (min, max) => min + Math.random() * (max - min);
+      const randomIndex = (array) => Math.floor(randomRange(0, array.length));
+      const takeRandom = (array) => array.splice(randomIndex(array), 1)[0];
+
+      function easeInPower2(value) {
+        return value * value;
+      }
+
+      function createFallbackSprite() {
+        const cellWidth = 84;
+        const cellHeight = 140;
+        const sprite = document.createElement("canvas");
+        sprite.width = rows * cellWidth;
+        sprite.height = cols * cellHeight;
+        const spriteCtx = sprite.getContext("2d");
+        const skin = ["#8d5524", "#c68642", "#e0ac69", "#f1c27d", "#ffdbac"];
+        const clothes = ["#2f6f73", "#d95d39", "#7a5cff", "#f2b705", "#3b82f6", "#2f855a", "#ef476f"];
+
+        for (let i = 0; i < rows * cols; i += 1) {
+          const x = (i % rows) * cellWidth;
+          const y = Math.floor(i / rows) * cellHeight;
+          const skinColor = skin[i % skin.length];
+          const shirtColor = clothes[(i * 3) % clothes.length];
+          const pantsColor = clothes[(i * 5 + 2) % clothes.length];
+          const hairColor = i % 4 === 0 ? "#191816" : i % 4 === 1 ? "#5b3924" : "#2b2118";
+          const lean = (i % 5) - 2;
+
+          spriteCtx.save();
+          spriteCtx.translate(x + cellWidth / 2 + lean, y + 18);
+
+          spriteCtx.fillStyle = "rgba(0, 0, 0, 0.12)";
+          spriteCtx.beginPath();
+          spriteCtx.ellipse(0, 114, 30, 8, 0, 0, Math.PI * 2);
+          spriteCtx.fill();
+
+          spriteCtx.strokeStyle = "#2b2b2b";
+          spriteCtx.lineWidth = 9;
+          spriteCtx.lineCap = "round";
+          spriteCtx.beginPath();
+          spriteCtx.moveTo(-12, 70);
+          spriteCtx.lineTo(-24 - (i % 3) * 3, 103);
+          spriteCtx.moveTo(12, 70);
+          spriteCtx.lineTo(24 + (i % 4) * 2, 104);
+          spriteCtx.stroke();
+
+          spriteCtx.strokeStyle = shirtColor;
+          spriteCtx.lineWidth = 8;
+          spriteCtx.beginPath();
+          spriteCtx.moveTo(-24, 46);
+          spriteCtx.lineTo(-36, 72 + (i % 2) * 10);
+          spriteCtx.moveTo(24, 46);
+          spriteCtx.lineTo(35, 68 - (i % 2) * 8);
+          spriteCtx.stroke();
+
+          spriteCtx.fillStyle = pantsColor;
+          spriteCtx.fillRect(-18, 66, 14, 34);
+          spriteCtx.fillRect(5, 66, 14, 34);
+
+          spriteCtx.fillStyle = shirtColor;
+          spriteCtx.beginPath();
+          spriteCtx.roundRect(-27, 38, 54, 40, 13);
+          spriteCtx.fill();
+
+          spriteCtx.fillStyle = skinColor;
+          spriteCtx.beginPath();
+          spriteCtx.arc(0, 22, 20, 0, Math.PI * 2);
+          spriteCtx.fill();
+
+          spriteCtx.fillStyle = hairColor;
+          spriteCtx.beginPath();
+          spriteCtx.arc(0, 12, 21, Math.PI, Math.PI * 2);
+          spriteCtx.fill();
+
+          spriteCtx.fillStyle = "#111";
+          spriteCtx.beginPath();
+          spriteCtx.arc(-7, 22, 2, 0, Math.PI * 2);
+          spriteCtx.arc(7, 22, 2, 0, Math.PI * 2);
+          spriteCtx.fill();
+
+          spriteCtx.restore();
+        }
+
+        return sprite;
+      }
+
+      function createPeep(image, rect) {
+        return {
+          image,
+          rect,
+          width: rect[2],
+          height: rect[3],
+          x: 0,
+          y: 0,
+          anchorY: 0,
+          scaleX: 1,
+          speed: 0,
+          bounce: 0,
+          bounceTime: 0,
+          endX: 0,
+          render(context) {
+            context.save();
+            context.translate(this.x, this.y + Math.sin(this.bounceTime) * this.bounce);
+            context.scale(this.scaleX, 1);
+            context.drawImage(
+              this.image,
+              this.rect[0],
+              this.rect[1],
+              this.rect[2],
+              this.rect[3],
+              this.scaleX < 0 ? -this.width : 0,
+              0,
+              this.width,
+              this.height,
+            );
+            context.restore();
+          },
+        };
+      }
+
+      function createPeeps(image) {
+        allPeeps.length = 0;
+        const rectWidth = image.width / rows;
+        const rectHeight = image.height / cols;
+
+        for (let i = 0; i < rows * cols; i += 1) {
+          allPeeps.push(
+            createPeep(image, [
+              (i % rows) * rectWidth,
+              Math.floor(i / rows) * rectHeight,
+              rectWidth,
+              rectHeight,
+            ]),
+          );
+        }
+      }
+
+      function resetPeep(peep) {
+        const direction = Math.random() > 0.5 ? 1 : -1;
+        const offsetY = 100 - 250 * easeInPower2(Math.random());
+        const startY = stage.height - peep.height + offsetY;
+
+        peep.scaleX = direction;
+        peep.x = direction === 1 ? -peep.width : stage.width + peep.width;
+        peep.endX = direction === 1 ? stage.width + peep.width : -peep.width;
+        peep.y = startY;
+        peep.anchorY = startY;
+        peep.speed = randomRange(45, 145) * direction;
+        peep.bounce = randomRange(3, 10);
+        peep.bounceTime = randomRange(0, Math.PI * 2);
+      }
+
+      function addPeepToCrowd() {
+        if (!availablePeeps.length) return;
+        const peep = takeRandom(availablePeeps);
+        resetPeep(peep);
+        crowd.push(peep);
+        crowd.sort((a, b) => a.anchorY - b.anchorY);
+      }
+
+      function resize() {
+        const ratio = window.devicePixelRatio || 1;
+        stage.width = canvas.clientWidth;
+        stage.height = canvas.clientHeight;
+        canvas.width = Math.floor(stage.width * ratio);
+        canvas.height = Math.floor(stage.height * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+        availablePeeps.length = 0;
+        crowd.length = 0;
+        availablePeeps.push(...allPeeps);
+
+        while (availablePeeps.length) {
+          addPeepToCrowd();
+          crowd[crowd.length - 1].x = randomRange(-100, stage.width + 100);
+        }
+      }
+
+      function update(delta) {
+        for (let i = crowd.length - 1; i >= 0; i -= 1) {
+          const peep = crowd[i];
+          peep.x += peep.speed * delta;
+          peep.bounceTime += delta * 18;
+
+          const finished =
+            peep.scaleX === 1 ? peep.x > peep.endX : peep.x < peep.endX;
+
+          if (finished) {
+            crowd.splice(i, 1);
+            availablePeeps.push(peep);
+            addPeepToCrowd();
+          }
+        }
+      }
+
+      function render(now) {
+        const delta = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        update(delta);
+        ctx.clearRect(0, 0, stage.width, stage.height);
+        crowd.forEach((peep) => peep.render(ctx));
+        animationId = requestAnimationFrame(render);
+      }
+
+      function start(image) {
+        cancelAnimationFrame(animationId);
+        createPeeps(image);
+        resize();
+        lastTime = performance.now();
+        animationId = requestAnimationFrame(render);
+      }
+
+      const externalSprite = new Image();
+      externalSprite.onload = () => start(externalSprite);
+      externalSprite.onerror = () => start(createFallbackSprite());
+      externalSprite.src = "images/peeps/all-peeps.png";
+
+      window.addEventListener("resize", resize);
+    </script>
+  </body>
+</html>
